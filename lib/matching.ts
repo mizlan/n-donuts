@@ -114,7 +114,7 @@ export function generateMatching(
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const weight = getPastMeetings(history, people[i].id, people[j].id);
-      edges.push([i, j, weight]);
+      edges.push([i, j, -weight]);
     }
   }
 

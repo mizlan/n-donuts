@@ -8,8 +8,8 @@ const history: MatchingHistory = [];
 const peopleSet = new Set<string>();
 
 for (const line of lines) {
-  const [left, right] = line.split(',').map(s => s.trim());
-  if (left && right && right !== '@Jake Padilla') {
+  const [left, right] = line.split(',').map(s => s.trim().replace(/^@/, ''));
+  if (left && right) {
     history.push([left, right]);
     peopleSet.add(left);
     peopleSet.add(right);

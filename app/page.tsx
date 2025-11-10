@@ -15,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     const savedPeople = localStorage.getItem('donut-people');
     const savedHistory = localStorage.getItem('donut-history');
-    
+
     if (savedPeople) setPeople(JSON.parse(savedPeople));
     if (savedHistory) setHistory(JSON.parse(savedHistory));
   }, []);
@@ -36,24 +36,28 @@ export default function Home() {
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      const lines = text.split('\n').filter(line => line.trim());
-      
-      const newPeople: Person[] = [];
-      lines.forEach((line, index) => {
-        if (index === 0 && line.toLowerCase().includes('name')) return; // Skip header
-        
-        const name = line.trim().replace(/^["']|["']$/g, ''); // Remove quotes
-        if (name) {
-          newPeople.push({
-            id: crypto.randomUUID(),
-            name: name
-          });
+      const lines = text.split('\n').filter(line => line.trim() && line !== 'Left,Right');
+
+      const newHistory: MatchingHistory = [];
+      const peopleSet = new Set<string>();
+
+      lines.forEach((line) => {
+        const [left, right] = line.split(',').map(s => s.trim().replace(/^@/, ''));
+        if (left && right) {
+          peopleSet.add(left);
+          peopleSet.add(right);
+          newHistory.push([left, right]);
         }
       });
 
+      const newPeople: Person[] = Array.from(peopleSet).sort().map(name => ({
+        id: name,
+        name: name
+      }));
+
       if (newPeople.length > 0) {
         setPeople(newPeople);
-        setHistory([]); // Reset history when uploading new people
+        setHistory(newHistory);
         setMatches([]);
       }
     };
@@ -62,22 +66,25 @@ export default function Home() {
 
   const addPerson = () => {
     if (!newPersonName.trim()) return;
-    
+
     const newPerson: Person = {
       id: crypto.randomUUID(),
       name: newPersonName.trim()
     };
-    
+
     setPeople([...people, newPerson]);
     setNewPersonName('');
   };
 
   const removePerson = (id: string) => {
+    const personName = people.find(p => p.id === id)?.name;
     setPeople(people.filter(p => p.id !== id));
-    
-    // Clean up history - remove any pairs involving this person
-    const newHistory = history.filter(([a, b]) => a !== id && b !== id);
-    setHistory(newHistory);
+
+    // Clean up history - remove any pairs involving this person (using name not id)
+    if (personName) {
+      const newHistory = history.filter(([a, b]) => a !== personName && b !== personName);
+      setHistory(newHistory);
+    }
   };
 
   const startEditing = (person: Person) => {
@@ -87,8 +94,8 @@ export default function Home() {
 
   const saveEdit = () => {
     if (!editingId || !editingName.trim()) return;
-    
-    setPeople(people.map(p => 
+
+    setPeople(people.map(p =>
       p.id === editingId ? { ...p, name: editingName.trim() } : p
     ));
     setEditingId(null);
@@ -148,7 +155,7 @@ export default function Home() {
             {/* Upload Section */}
             <div className="bg-white dark:bg-zinc-800 rounded-2xl shadow-lg p-6 border border-zinc-200 dark:border-zinc-700">
               <h2 className="text-xl font-semibold text-zinc-900 dark:text-white mb-4">
-                Upload People
+                Upload Meeting History
               </h2>
               <div className="space-y-4">
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-zinc-300 dark:border-zinc-600 rounded-xl cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition">
@@ -159,11 +166,11 @@ export default function Home() {
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                       <span className="font-semibold">Click to upload CSV</span> or drag and drop
                     </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">CSV with names (one per line)</p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-500">CSV with pairs (Left,Right format)</p>
                   </div>
                   <input type="file" className="hidden" accept=".csv" onChange={handleFileUpload} />
                 </label>
-                
+
                 <button
                   onClick={exportToCSV}
                   className="w-full px-4 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-zinc-700 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-600 transition"
@@ -211,7 +218,7 @@ export default function Home() {
                   </button>
                 )}
               </div>
-              
+
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {people.length === 0 ? (
                   <p className="text-zinc-500 dark:text-zinc-400 text-center py-8">
@@ -291,7 +298,7 @@ export default function Home() {
                     Confirm Matches
                   </button>
                 </div>
-                
+
                 <div className="space-y-3">
                   {matches.map((match, idx) => (
                     <div key={idx} className="p-4 bg-gradient-to-r from-orange-50 to-pink-50 dark:from-zinc-700/50 dark:to-zinc-700/30 rounded-lg border border-orange-200 dark:border-zinc-600">
@@ -326,21 +333,18 @@ export default function Home() {
                     {/* Count meetings per pair */}
                     {(() => {
                       const pairCounts = new Map<string, number>();
-                      history.forEach(([id1, id2]) => {
-                        const key = [id1, id2].sort().join('-');
+                      history.forEach(([name1, name2]) => {
+                        const key = [name1, name2].sort().join('-');
                         pairCounts.set(key, (pairCounts.get(key) || 0) + 1);
                       });
-                      
+
                       return Array.from(pairCounts.entries())
                         .sort((a, b) => b[1] - a[1]) // Sort by count descending
                         .map(([key, count]) => {
-                          const [id1, id2] = key.split('-');
-                          const person1 = people.find(p => p.id === id1);
-                          const person2 = people.find(p => p.id === id2);
-                          if (!person1 || !person2) return null;
+                          const [name1, name2] = key.split('-');
                           return (
                             <div key={key} className="flex justify-between text-xs">
-                              <span>{person1.name} + {person2.name}</span>
+                              <span>{name1} + {name2}</span>
                               <span className="font-medium">{count}x</span>
                             </div>
                           );
