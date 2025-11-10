@@ -9,7 +9,7 @@ const testPeople: Person[] = [
 ];
 
 console.log('Test 1: Initial matching with 5 people (odd)');
-let history: MatchingHistory = {};
+let history: MatchingHistory = [];
 let groups = generateMatching(testPeople, history);
 console.log(JSON.stringify(groups, null, 2));
 console.log(`Total groups: ${groups.length}`);
@@ -31,7 +31,7 @@ for (let week = 3; week <= 6; week++) {
 
 console.log('\n\nTest 4: Even number (4 people)');
 const evenPeople = testPeople.slice(0, 4);
-history = {};
+history = [];
 groups = generateMatching(evenPeople, history);
 console.log(JSON.stringify(groups, null, 2));
 console.log(`Pairs: ${groups.filter(g => g.type === 'pair').length}`);
